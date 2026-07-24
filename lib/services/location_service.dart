@@ -8,14 +8,12 @@ class LocationService {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Check if GPS is enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       return null;
     }
 
-    // Check permission
     permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
@@ -42,5 +40,16 @@ class LocationService {
       'latitude': latitude,
       'longitude': longitude,
     });
+  }
+
+  Future<Map<String, dynamic>?> getLatestLocation() async {
+    final response = await supabase
+        .from('patient_locations')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(1)
+        .single();
+
+    return response;
   }
 }

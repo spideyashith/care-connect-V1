@@ -1,118 +1,157 @@
 import 'package:flutter/material.dart';
 
-class CaregiverDashboardScreen extends StatelessWidget {
+import '../services/caregiver_service.dart';
+
+class CaregiverDashboardScreen extends StatefulWidget {
   const CaregiverDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F9FF),
+  State<CaregiverDashboardScreen> createState() =>
+      _CaregiverDashboardScreenState();
+}
 
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        title: const Text(
-          "Caregiver Dashboard",
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
+  final CaregiverService caregiverService = CaregiverService();
 
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+  Map<String, dynamic>? latestLocation;
+  Map<String, dynamic>? latestAlert;
+  List<dynamic> activities = [];
 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  bool isLoading = true;
 
-          children: [
-            const Text(
-              "Assigned Patients",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+  Future<void> loadDashboard() async {
+    final location = await caregiverService.getLatestLocation();
+    final alert = await caregiverService.getLatestAlert();
+    final activityList = await caregiverService.getActivities();
 
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/schedule');
-                },
-                child: const Text("Schedule Builder"),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/monitor');
-                },
-                child: const Text("Activity Monitor"),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/live-location');
-                },
-                child: const Text("Live Patient Location"),
-              ),
-            ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/safe-zone');
-                },
-                child: const Text("Set Home Location"),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            _patientCard(context, "John Doe", "Normal", Colors.green),
-
-            _patientCard(context, "Mary Smith", "Review Needed", Colors.orange),
-
-            _patientCard(context, "Robert Johnson", "Normal", Colors.green),
-          ],
-        ),
-      ),
-    );
+    setState(() {
+      latestLocation = location;
+      latestAlert = alert;
+      activities = activityList;
+      isLoading = false;
+    });
   }
 
-  Widget _patientCard(
-    BuildContext context,
-    String name,
-    String status,
-    Color statusColor,
-  ) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 15),
+  @override
+  void initState() {
+    super.initState();
+    loadDashboard();
+  }
 
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: statusColor,
-          child: const Icon(Icons.person, color: Colors.white),
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Caregiver Dashboard"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.map),
+            tooltip: "Live Map",
+            onPressed: () {
+              Navigator.pushNamed(context, "/liveMap");
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "Refresh",
+            onPressed: loadDashboard,
+          ),
+        ],
+      ),
+
+      body: RefreshIndicator(
+        onRefresh: loadDashboard,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text("Patient"),
+                  subtitle: const Text("John Doe"),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Card(
+                child: ListTile(
+                  leading: Icon(
+                    latestAlert == null ? Icons.check_circle : Icons.warning,
+                    color: latestAlert == null ? Colors.green : Colors.red,
+                  ),
+                  title: const Text("Patient Status"),
+                  subtitle: Text(
+                    latestAlert == null ? "SAFE" : "OUTSIDE SAFE ZONE",
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.location_on, color: Colors.blue),
+                  title: const Text("Current Location"),
+                  subtitle: Text(
+                    latestLocation == null
+                        ? "No Location"
+                        : "Lat: ${latestLocation!['latitude']}\nLng: ${latestLocation!['longitude']}",
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.warning, color: Colors.red),
+                  title: const Text("Latest Alert"),
+                  subtitle: Text(
+                    latestAlert == null
+                        ? "No Active Alerts"
+                        : latestAlert!['message'],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                "Today's Activities",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 10),
+
+              ...activities.map((activity) {
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      activity['status'] == 'completed'
+                          ? Icons.check_circle
+                          : Icons.schedule,
+                      color: activity['status'] == 'completed'
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                    title: Text(activity['activity_name']),
+                    subtitle: Text(activity['activity_time']),
+                    trailing: Text(activity['status']),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
         ),
-
-        title: Text(name),
-
-        subtitle: Text(
-          status,
-          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
-        ),
-
-        trailing: const Icon(Icons.arrow_forward_ios),
-
-        onTap: () {},
       ),
     );
   }

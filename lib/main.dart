@@ -7,6 +7,8 @@ import 'screens/caregiver_dashboard_screen.dart';
 import 'screens/caregiver_live_location_screen.dart';
 import 'screens/caregiver_schedule_screen.dart';
 import 'screens/doctor_dashboard_screen.dart';
+import 'screens/home_setup_screen.dart';
+import 'screens/live_map_screen.dart';
 import 'screens/location_test_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/patient_anchor_screen.dart';
@@ -52,6 +54,8 @@ class CareConnectApp extends StatelessWidget {
         '/location': (context) => const LocationTestScreen(),
         '/live-location': (context) => const CaregiverLiveLocationScreen(),
         '/safe-zone': (context) => const SetSafeZoneScreen(),
+        '/homeSetup': (context) => const HomeSetupScreen(),
+        '/liveMap': (context) => const LiveMapScreen(),
       },
     );
   }

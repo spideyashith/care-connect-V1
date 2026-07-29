@@ -26,11 +26,19 @@ class EmergencyService {
     }
   }
 
-
   Future<List<dynamic>> getAlerts() async {
     return await supabase
         .from('emergency_alerts')
         .select()
         .order('created_at', ascending: false);
+  }
+
+  Future<void> sendSafeZoneAlert({required String patientId}) async {
+    await supabase.from('emergency_alerts').insert({
+      'patient_id': patientId,
+      'alert_status': 'safe_zone_exit',
+      'alert_time': DateTime.now().toIso8601String(),
+      'message': 'Patient left the safe zone',
+    });
   }
 }

@@ -15,17 +15,24 @@ import 'screens/patient_anchor_screen.dart';
 import 'screens/patient_dashboard_screen.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/set_safe_zone_screen.dart';
+import 'screens/signup_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/today_activities_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
 
+  // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+      detectSessionInUri: true,
+    ),
   );
 
   runApp(const CareConnectApp());
@@ -38,23 +45,62 @@ class CareConnectApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+
       title: 'CareConnect',
 
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+
+      initialRoute: '/',
+
       routes: {
+        // =========================
+        // STARTUP
+        // =========================
         '/': (context) => const SplashScreen(),
+
+        // =========================
+        // AUTHENTICATION
+        // =========================
         '/login': (context) => const LoginScreen(),
+
+        '/signup': (context) => const SignupScreen(),
+
+        // Legacy role selection
+        // Will be removed after authentication
+        // is completely integrated.
         '/role': (context) => const RoleSelectionScreen(),
+
+        // =========================
+        // MAIN DASHBOARDS
+        // =========================
         '/patient': (context) => const PatientDashboardScreen(),
+
         '/caregiver': (context) => const CaregiverDashboardScreen(),
+
         '/doctor': (context) => const DoctorDashboardScreen(),
+
+        // =========================
+        // PATIENT FEATURES
+        // =========================
         '/anchor': (context) => const PatientAnchorScreen(),
-        '/schedule': (context) => const CaregiverScheduleScreen(),
-        '/monitor': (context) => const ActivityMonitorScreen(),
+
         '/activities': (context) => const TodayActivitiesScreen(),
+
         '/location': (context) => const LocationTestScreen(),
+
+        // =========================
+        // CAREGIVER FEATURES
+        // =========================
+        '/schedule': (context) => const CaregiverScheduleScreen(),
+
+        '/monitor': (context) => const ActivityMonitorScreen(),
+
         '/live-location': (context) => const CaregiverLiveLocationScreen(),
+
         '/safe-zone': (context) => const SetSafeZoneScreen(),
+
         '/homeSetup': (context) => const HomeSetupScreen(),
+
         '/liveMap': (context) => const LiveMapScreen(),
       },
     );

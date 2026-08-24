@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -8,64 +9,86 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final SupabaseClient supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
 
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pushReplacementNamed(context, '/login');
-    });
+    checkSession();
+  }
+
+  Future<void> checkSession() async {
+    await Future.delayed(const Duration(seconds: 2));
+
+    final user = supabase.auth.currentUser;
+
+    if (!mounted) return;
+
+    if (user == null) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+
+      return;
+    }
+
+    try {
+      final profile = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      final role = profile?['role']?.toString().toLowerCase();
+
+      if (role == 'patient') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/patient',
+          (route) => false,
+        );
+      } else if (role == 'caregiver') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/caregiver',
+          (route) => false,
+        );
+      } else if (role == 'doctor') {
+        Navigator.pushNamedAndRemoveUntil(context, '/doctor', (route) => false);
+      } else {
+        await supabase.auth.signOut();
+
+        if (!mounted) return;
+
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    } catch (e) {
+      debugPrint('Session check error: $e');
+
+      await supabase.auth.signOut();
+
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F9FF),
+    return const Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
-            const Icon(
-              Icons.psychology,
-              size: 100,
-              color: Color(0xFF1565C0),
+            Icon(Icons.psychology, size: 90, color: Color(0xFF1565C0)),
+            SizedBox(height: 20),
+            Text(
+              'CareConnect',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              "CareConnect",
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            const Text(
-              "AI-Assisted Dementia Care",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-
-            const SizedBox(height: 50),
-
-            const CircularProgressIndicator(),
-
-            const SizedBox(height: 30),
-
-            const Text(
-              "Version 1.0",
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
+            SizedBox(height: 20),
+            CircularProgressIndicator(),
           ],
         ),
       ),

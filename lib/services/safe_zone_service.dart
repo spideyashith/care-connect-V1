@@ -2,49 +2,37 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SafeZoneService {
-  final supabase = Supabase.instance.client;
+  final SupabaseClient supabase = Supabase.instance.client;
 
-  Future<void> saveHomeLocation({
-    required String patientId,
+  Future<void> saveSafeZone({
     required double latitude,
     required double longitude,
     required int radius,
   }) async {
-    try {
-      print("Deleting old safe zone...");
+    final patientId = supabase.auth.currentUser?.id;
 
-      await supabase.from('safe_zones').delete().eq('patient_id', patientId);
-
-      print("Saving new safe zone...");
-
-      await supabase.from('safe_zones').insert({
-        'patient_id': patientId,
-        'latitude': latitude,
-        'longitude': longitude,
-        'radius': radius,
-      });
-
-      print("✅ Safe Zone Saved");
-    } catch (e) {
-      print("❌ ERROR");
-      print(e);
-      rethrow;
+    if (patientId == null) {
+      throw Exception('Patient is not logged in.');
     }
+
+    await supabase.from('safe_zones').delete().eq('patient_id', patientId);
+
+    await supabase.from('safe_zones').insert({
+      'patient_id': patientId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'radius': radius,
+    });
   }
 
   Future<Map<String, dynamic>?> getSafeZone(String patientId) async {
-    try {
-      final response = await supabase
-          .from('safe_zones')
-          .select()
-          .eq('patient_id', patientId)
-          .single();
-
-      return response;
-    } catch (e) {
-      print(e);
-      return null;
-    }
+    return await supabase
+        .from('safe_zones')
+        .select()
+        .eq('patient_id', patientId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
   }
 
   bool isOutsideSafeZone({
@@ -52,7 +40,7 @@ class SafeZoneService {
     required double patientLng,
     required double homeLat,
     required double homeLng,
-    required int radius,
+    required double radius,
   }) {
     final distance = Geolocator.distanceBetween(
       homeLat,

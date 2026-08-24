@@ -1,42 +1,43 @@
 import 'package:flutter/material.dart';
+
 import '../services/activity_service.dart';
-
-
-
 
 class PatientAnchorScreen extends StatefulWidget {
   const PatientAnchorScreen({super.key});
 
   @override
-  State<PatientAnchorScreen> createState() =>
-      _PatientAnchorScreenState();
+  State<PatientAnchorScreen> createState() => _PatientAnchorScreenState();
 }
 
-class _PatientAnchorScreenState
-    extends State<PatientAnchorScreen> {
-
-  final ActivityService activityService =
-  ActivityService();
+class _PatientAnchorScreenState extends State<PatientAnchorScreen> {
+  final ActivityService activityService = ActivityService();
 
   Map<String, dynamic>? activity;
 
   bool isLoading = true;
+  bool isCompleting = false;
 
+  @override
+  void initState() {
+    super.initState();
+
+    loadActivity();
+  }
 
   Future<void> loadActivity() async {
     try {
+      final result = await activityService.getLatestActivity();
 
-      final result =
-      await activityService.getLatestActivity();
+      if (!mounted) return;
 
       setState(() {
         activity = result;
         isLoading = false;
       });
-
     } catch (e) {
+      debugPrint('Load activity error: $e');
 
-      print(e);
+      if (!mounted) return;
 
       setState(() {
         isLoading = false;
@@ -44,199 +45,184 @@ class _PatientAnchorScreenState
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    loadActivity();
-  }
-
   Future<void> markCompleted() async {
+    if (activity == null || isCompleting) {
+      return;
+    }
 
-    if (activity == null) return;
+    setState(() {
+      isCompleting = true;
+    });
 
-    await activityService
-        .markActivityCompleted(
-      activity!['id'],
-    );
+    try {
+      await activityService.markActivityCompleted(activity!['id']);
 
-    await loadActivity();
+      await loadActivity();
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Activity Completed",
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text('Activity completed.'),
         ),
-      ),
-    );
-  }
+      );
+    } catch (e) {
+      debugPrint('Complete activity error: $e');
 
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text('Unable to complete activity.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isCompleting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    final noActivity = activity == null;
+
+    final completed = activity?['status'] == 'completed';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F9FF),
 
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
+
         title: const Text(
-          "Patient Board",
-          style: TextStyle(
-            color: Colors.white,
-          ),
+          'Patient Board',
+          style: TextStyle(color: Colors.white),
         ),
       ),
 
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
 
-          child: Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
 
-            children: [
+          children: [
+            const SizedBox(height: 30),
 
-              const SizedBox(height: 30),
+            const Text(
+              'Current Activity',
+              style: TextStyle(fontSize: 22, color: Colors.grey),
+            ),
 
-              const Text(
-                "Current Activity",
-                style: TextStyle(
-                  fontSize: 22,
-                  color: Colors.grey,
-                ),
+            const SizedBox(height: 15),
+
+            Text(
+              noActivity
+                  ? 'No Activity'
+                  : activity!['activity_name']?.toString() ?? 'Activity',
+              textAlign: TextAlign.center,
+
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              'Scheduled Time',
+              style: TextStyle(fontSize: 20, color: Colors.grey),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              noActivity
+                  ? '--'
+                  : activity!['activity_time']?.toString() ?? '--',
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1565C0),
               ),
+            ),
 
-              const SizedBox(height: 15),
+            const SizedBox(height: 40),
 
-              Text(
-                activity?['activity_name'] ?? "No Activity",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            Card(
+              elevation: 4,
 
-              const SizedBox(height: 30),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
 
-              const Text(
-                "Scheduled Time",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.grey,
-                ),
-              ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Status',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
 
-              const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-              Text(
-                activity?['activity_time'] ?? "--",
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1565C0),
-                ),
-              ),
+                    Text(
+                      noActivity
+                          ? 'No Activity'
+                          : completed
+                          ? 'Completed'
+                          : 'Pending',
 
-              const SizedBox(height: 40),
-
-              Card(
-                elevation: 4,
-                child: Padding(
-                  padding:
-                  const EdgeInsets.all(16),
-
-                  child: Column(
-                    children: [
-
-                      const Text(
-                        "Status",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                        ),
+                      style: TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                        color: noActivity
+                            ? Colors.grey
+                            : completed
+                            ? Colors.green
+                            : Colors.orange,
                       ),
+                    ),
 
-                      const SizedBox(height: 10),
-
+                    if (completed && activity!['completed_at'] != null) ...[
+                      const SizedBox(height: 15),
                       Text(
-                        activity?['status'] == 'completed'
-                            ? "Completed"
-                            : "Pending",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight:
-                          FontWeight.bold,
-                          color:
-                          activity?['status'] == 'completed'
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
+                        'Completed At: '
+                        '${activity!['completed_at']}',
+                        textAlign: TextAlign.center,
                       ),
-
-                      const SizedBox(height: 20),
-
-                      if (activity?['status'] == 'completed')
-                        Column(
-                          children: [
-
-                            const Text(
-                              "Completed At",
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height: 8,
-                            ),
-
-                            Text(
-                              activity?['completed_at'] ?? "",
-                              style:
-                              const TextStyle(
-                                fontSize: 20,
-                                fontWeight:
-                                FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
                     ],
-                  ),
+                  ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 30),
+            const SizedBox(height: 30),
 
-              SizedBox(
-                width: double.infinity,
-                height: 55,
+            SizedBox(
+              width: double.infinity,
+              height: 58,
 
-                child: ElevatedButton(
-                  onPressed:
-                  activity?['status'] == 'completed'
-                      ? null
-                      : markCompleted,
+              child: ElevatedButton(
+                onPressed: noActivity || completed || isCompleting
+                    ? null
+                    : markCompleted,
 
-                  child: Text(
-                    activity?['status'] == 'completed'
-                        ? "ACTIVITY COMPLETED"
-                        : "MARK COMPLETED",
-                  ),
-                ),
+                child: isCompleting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : Text(completed ? 'ACTIVITY COMPLETED' : 'MARK COMPLETED'),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

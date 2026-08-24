@@ -25,12 +25,16 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // ============================================================
+  // LOGIN
+  // ============================================================
+
   Future<void> login() async {
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      showMessage("Please enter email and password");
+      showMessage('Please enter email and password.');
       return;
     }
 
@@ -47,10 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = response.user;
 
       if (user == null) {
-        showMessage("Login failed");
+        showMessage('Login failed.');
         return;
       }
 
+      // Get the logged-in user's profile.
       final profile = await supabase
           .from('profiles')
           .select()
@@ -59,14 +64,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (profile == null) {
         showMessage(
-          "Your account profile was not found. Please contact the administrator.",
+          'Your account profile was not found. '
+          'Please contact support.',
         );
         return;
       }
 
-      final role = profile['role'];
+      final role = profile['role']?.toString().toLowerCase();
 
       if (!mounted) return;
+
+      // ----------------------------------------------------------
+      // PATIENT
+      // ----------------------------------------------------------
 
       if (role == 'patient') {
         Navigator.pushNamedAndRemoveUntil(
@@ -74,22 +84,35 @@ class _LoginScreenState extends State<LoginScreen> {
           '/patient',
           (route) => false,
         );
-      } else if (role == 'caregiver') {
+      }
+      // ----------------------------------------------------------
+      // CAREGIVER
+      // ----------------------------------------------------------
+      else if (role == 'caregiver') {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/caregiver',
           (route) => false,
         );
-      } else if (role == 'doctor') {
+      }
+      // ----------------------------------------------------------
+      // DOCTOR
+      // ----------------------------------------------------------
+      else if (role == 'doctor') {
         Navigator.pushNamedAndRemoveUntil(context, '/doctor', (route) => false);
-      } else {
-        showMessage("Invalid account role");
+      }
+      // ----------------------------------------------------------
+      // INVALID ROLE
+      // ----------------------------------------------------------
+      else {
+        showMessage('Invalid account role. Please contact support.');
       }
     } on AuthException catch (e) {
       showMessage(e.message);
     } catch (e) {
-      showMessage("Something went wrong. Please try again.");
-      debugPrint("Login error: $e");
+      debugPrint('Login error: $e');
+
+      showMessage('Something went wrong. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
@@ -99,27 +122,52 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // ============================================================
+  // FORGOT PASSWORD
+  // ============================================================
+
   Future<void> forgotPassword() async {
     final email = emailController.text.trim();
 
     if (email.isEmpty) {
-      showMessage("Enter your email first");
+      showMessage('Enter your email first.');
       return;
     }
 
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      await supabase.auth.resetPasswordForEmail(email);
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.careconnect.app://reset-password/',
+      );
 
       if (!mounted) return;
 
-      showMessage("Password reset instructions have been sent to your email.");
+      showMessage(
+        'Password reset email sent. '
+        'Please check your inbox.',
+      );
     } on AuthException catch (e) {
       showMessage(e.message);
     } catch (e) {
-      showMessage("Unable to send password reset email.");
-      debugPrint("Password reset error: $e");
+      debugPrint('Password reset error: $e');
+
+      showMessage('Unable to send password reset email.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
 
   void showMessage(String message) {
     if (!mounted) return;
@@ -128,6 +176,10 @@ class _LoginScreenState extends State<LoginScreen> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -152,26 +204,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
 
                 const Text(
-                  "Welcome Back",
+                  'Welcome Back',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
 
                 const SizedBox(height: 10),
 
                 const Text(
-                  "Sign in to continue",
+                  'Sign in to continue',
                   style: TextStyle(color: Colors.grey, fontSize: 16),
                 ),
 
                 const SizedBox(height: 40),
 
+                // =================================================
+                // EMAIL
+                // =================================================
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
 
                   decoration: InputDecoration(
-                    labelText: "Email",
+                    labelText: 'Email',
                     prefixIcon: const Icon(Icons.email),
 
                     border: OutlineInputBorder(
@@ -182,6 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
+                // =================================================
+                // PASSWORD
+                // =================================================
                 TextField(
                   controller: passwordController,
                   obscureText: obscurePassword,
@@ -194,7 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
 
                   decoration: InputDecoration(
-                    labelText: "Password",
+                    labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock),
 
                     suffixIcon: IconButton(
@@ -203,7 +261,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? Icons.visibility
                             : Icons.visibility_off,
                       ),
-
                       onPressed: () {
                         setState(() {
                           obscurePassword = !obscurePassword;
@@ -219,6 +276,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 30),
 
+                // =================================================
+                // LOGIN
+                // =================================================
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -238,14 +298,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             width: 24,
                             height: 24,
-
                             child: CircularProgressIndicator(
                               color: Colors.white,
                               strokeWidth: 2,
                             ),
                           )
                         : const Text(
-                            "LOGIN",
+                            'LOGIN',
                             style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                   ),
@@ -253,10 +312,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 15),
 
+                // =================================================
+                // FORGOT PASSWORD
+                // =================================================
                 TextButton(
                   onPressed: isLoading ? null : forgotPassword,
 
-                  child: const Text("Forgot Password?"),
+                  child: const Text('Forgot Password?'),
                 ),
 
                 const SizedBox(height: 15),
@@ -265,13 +327,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 15),
 
+                // =================================================
+                // SIGN UP
+                // =================================================
                 TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/signup');
-                  },
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          Navigator.pushNamed(context, '/signup');
+                        },
 
                   child: const Text(
-                    "Create New Account",
+                    'Create New Account',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

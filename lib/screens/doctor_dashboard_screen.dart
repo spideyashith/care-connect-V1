@@ -1,158 +1,149 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class DoctorDashboardScreen extends StatelessWidget {
+import '../services/doctor_service.dart';
+import 'doctor_patient_detail_screen.dart';
+
+class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
 
   @override
+  State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+}
+
+class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
+  final DoctorService doctorService = DoctorService();
+
+  List<dynamic> patients = [];
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    loadPatients();
+  }
+
+  Future<void> loadPatients() async {
+    try {
+      final result = await doctorService.getPatients();
+
+      if (!mounted) return;
+
+      setState(() {
+        patients = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Doctor patients error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to load patients.')));
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } catch (e) {
+      debugPrint('Doctor logout error: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F9FF),
-
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        title: const Text(
-          "Doctor Dashboard",
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Doctor Dashboard'),
+
+        actions: [
+          IconButton(
+            onPressed: loadPatients,
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+          ),
+
+          IconButton(
+            onPressed: logout,
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: RefreshIndicator(
+        onRefresh: loadPatients,
 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: patients.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
 
-            const Text(
-              "Overview",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+                children: const [
+                  SizedBox(height: 250),
 
-            const SizedBox(height: 20),
-
-            Row(
-              children: [
-
-                Expanded(
-                  child: _summaryCard(
-                    "Total Patients",
-                    "15",
-                    Icons.people,
-                    Colors.blue,
+                  Center(
+                    child: Text(
+                      'No patients registered yet.',
+                      style: TextStyle(fontSize: 18),
+                    ),
                   ),
-                ),
+                ],
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
 
-                const SizedBox(width: 10),
+                itemCount: patients.length,
 
-                Expanded(
-                  child: _summaryCard(
-                    "Warnings",
-                    "2",
-                    Icons.warning,
-                    Colors.orange,
-                  ),
-                ),
-              ],
-            ),
+                itemBuilder: (context, index) {
+                  final patient = Map<String, dynamic>.from(patients[index]);
 
-            const SizedBox(height: 25),
+                  return Card(
+                    elevation: 3,
 
-            const Text(
-              "Recent Patient Alerts",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                    margin: const EdgeInsets.only(bottom: 12),
+
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+
+                      title: Text(patient['full_name'] ?? 'Patient'),
+
+                      subtitle: Text(
+                        'Care Code: '
+                        '${patient['care_code'] ?? '--'}',
+                      ),
+
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DoctorPatientDetailScreen(
+                              patientId: patient['id'].toString(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
-            ),
-
-            const SizedBox(height: 15),
-
-            _alertCard(
-              "Mary Smith",
-              "Behavioral deviation detected",
-              Colors.orange,
-            ),
-
-            _alertCard(
-              "John Doe",
-              "Normal activity pattern",
-              Colors.green,
-            ),
-
-            _alertCard(
-              "Robert Johnson",
-              "Normal activity pattern",
-              Colors.green,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryCard(
-      String title,
-      String value,
-      IconData icon,
-      Color color,
-      ) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-
-        child: Column(
-          children: [
-
-            Icon(
-              icon,
-              size: 40,
-              color: color,
-            ),
-
-            const SizedBox(height: 10),
-
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            Text(title),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _alertCard(
-      String patient,
-      String status,
-      Color color,
-      ) {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 12),
-
-      child: ListTile(
-        leading: Icon(
-          Icons.person,
-          color: color,
-          size: 35,
-        ),
-
-        title: Text(patient),
-
-        subtitle: Text(status),
-
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-        ),
       ),
     );
   }

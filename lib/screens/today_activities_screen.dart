@@ -1,105 +1,125 @@
 import 'package:flutter/material.dart';
+
 import '../services/activity_service.dart';
 
 class TodayActivitiesScreen extends StatefulWidget {
   const TodayActivitiesScreen({super.key});
 
   @override
-  State<TodayActivitiesScreen> createState() =>
-      _TodayActivitiesScreenState();
+  State<TodayActivitiesScreen> createState() => _TodayActivitiesScreenState();
 }
 
-class _TodayActivitiesScreenState
-    extends State<TodayActivitiesScreen> {
-
-  final ActivityService activityService =
-  ActivityService();
+class _TodayActivitiesScreenState extends State<TodayActivitiesScreen> {
+  final ActivityService activityService = ActivityService();
 
   List<dynamic> activities = [];
 
   bool isLoading = true;
 
-  Future<void> loadActivities() async {
-
-    final result =
-    await activityService
-        .getAllActivities();
-
-    setState(() {
-
-      activities = result;
-
-      isLoading = false;
-    });
-  }
-
   @override
   void initState() {
     super.initState();
+
     loadActivities();
+  }
+
+  Future<void> loadActivities() async {
+    try {
+      final result = await activityService.getAllActivities();
+
+      if (!mounted) return;
+
+      setState(() {
+        activities = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Activities error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-
     if (isLoading) {
-      return const Scaffold(
-        body: Center(
-          child:
-          CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Today's Activities",
-        ),
+        title: const Text("Today's Activities"),
+        actions: [
+          IconButton(
+            onPressed: loadActivities,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
 
-      body: ListView.builder(
-        itemCount: activities.length,
+      body: RefreshIndicator(
+        onRefresh: loadActivities,
 
-        itemBuilder: (context, index) {
+        child: activities.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 250),
+                  Center(
+                    child: Text(
+                      'No activities assigned yet.',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              )
+            : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
 
-          final activity =
-          activities[index];
+                padding: const EdgeInsets.all(8),
 
-          return Card(
-            margin:
-            const EdgeInsets.all(8),
+                itemCount: activities.length,
 
-            child: ListTile(
+                itemBuilder: (context, index) {
+                  final activity = Map<String, dynamic>.from(activities[index]);
 
-              leading: Icon(
-                activity['status'] ==
-                    'completed'
-                    ? Icons.check_circle
-                    : Icons.schedule,
-                color:
-                activity['status'] ==
-                    'completed'
-                    ? Colors.green
-                    : Colors.orange,
+                  final completed = activity['status'] == 'completed';
+
+                  return Card(
+                    margin: const EdgeInsets.all(8),
+
+                    child: ListTile(
+                      leading: Icon(
+                        completed ? Icons.check_circle : Icons.schedule,
+                        color: completed ? Colors.green : Colors.orange,
+                        size: 32,
+                      ),
+
+                      title: Text(
+                        activity['activity_name'] ?? 'Activity',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+
+                      subtitle: Text(
+                        'Time: '
+                        '${activity['activity_time'] ?? '--'}',
+                      ),
+
+                      trailing: Text(
+                        completed ? 'Completed' : 'Pending',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: completed ? Colors.green : Colors.orange,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-
-              title: Text(
-                activity[
-                'activity_name'],
-              ),
-
-              subtitle: Text(
-                activity[
-                'activity_time'],
-              ),
-
-              trailing: Text(
-                activity['status'],
-              ),
-            ),
-          );
-        },
       ),
     );
   }

@@ -20,6 +20,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
+  String selectedRole = 'patient';
+
   bool isLoading = false;
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
@@ -34,26 +36,26 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> signup() async {
-    final fullName = nameController.text.trim();
+    final name = nameController.text.trim();
     final email = emailController.text.trim();
     final password = passwordController.text;
     final confirmPassword = confirmPasswordController.text;
 
-    if (fullName.isEmpty ||
+    if (name.isEmpty ||
         email.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty) {
-      showMessage("Please fill all fields.");
+      showMessage('Please fill all fields.');
       return;
     }
 
     if (password.length < 6) {
-      showMessage("Password must be at least 6 characters.");
+      showMessage('Password must be at least 6 characters.');
       return;
     }
 
     if (password != confirmPassword) {
-      showMessage("Passwords do not match.");
+      showMessage('Passwords do not match.');
       return;
     }
 
@@ -66,34 +68,48 @@ class _SignupScreenState extends State<SignupScreen> {
         email: email,
         password: password,
         emailRedirectTo: 'io.careconnect.app://login-callback/',
-        data: {'full_name': fullName},
+        data: {'full_name': name, 'requested_role': selectedRole},
       );
 
       if (!mounted) return;
 
       if (response.user == null) {
-        showMessage("Unable to create account.");
+        showMessage('Unable to create account.');
         return;
       }
 
+      // If email confirmation is enabled.
       if (response.session == null) {
-        showMessage(
-          "Account created. Check your email to verify your account.",
-        );
+        showMessage('Account created. Please verify your email.');
 
-        Navigator.pop(context);
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+
         return;
       }
 
-      showMessage("Account created successfully.");
+      showMessage('Account created successfully.');
 
-      Navigator.pushNamedAndRemoveUntil(context, '/patient', (route) => false);
+      if (selectedRole == 'patient') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/patient',
+          (route) => false,
+        );
+      } else if (selectedRole == 'caregiver') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/caregiver',
+          (route) => false,
+        );
+      } else if (selectedRole == 'doctor') {
+        Navigator.pushNamedAndRemoveUntil(context, '/doctor', (route) => false);
+      }
     } on AuthException catch (e) {
       showMessage(e.message);
     } catch (e) {
-      debugPrint("Signup error: $e");
+      debugPrint('Signup error: $e');
 
-      showMessage("Something went wrong while creating the account.");
+      showMessage('Unable to create account.');
     } finally {
       if (mounted) {
         setState(() {
@@ -116,7 +132,7 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F9FF),
 
-      appBar: AppBar(title: const Text("Create Patient Account")),
+      appBar: AppBar(title: const Text('Create Account')),
 
       body: SafeArea(
         child: SingleChildScrollView(
@@ -131,25 +147,18 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 20),
 
               const Text(
-                "Create Patient Account",
+                'Create CareConnect Account',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
 
-              const SizedBox(height: 10),
-
-              const Text(
-                "Enter the patient's account details.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-
-              const SizedBox(height: 35),
+              const SizedBox(height: 30),
 
               TextField(
                 controller: nameController,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: "Full Name",
+                  labelText: 'Full Name',
                   prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -164,7 +173,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: "Email",
+                  labelText: 'Email',
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -174,12 +183,47 @@ class _SignupScreenState extends State<SignupScreen> {
 
               const SizedBox(height: 18),
 
+              DropdownButtonFormField<String>(
+                initialValue: selectedRole,
+
+                decoration: InputDecoration(
+                  labelText: 'Account Type',
+                  prefixIcon: const Icon(Icons.badge),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+
+                items: const [
+                  DropdownMenuItem(value: 'patient', child: Text('Patient')),
+                  DropdownMenuItem(
+                    value: 'caregiver',
+                    child: Text('Caregiver'),
+                  ),
+                  DropdownMenuItem(value: 'doctor', child: Text('Doctor')),
+                ],
+
+                onChanged: isLoading
+                    ? null
+                    : (value) {
+                        if (value == null) {
+                          return;
+                        }
+
+                        setState(() {
+                          selectedRole = value;
+                        });
+                      },
+              ),
+
+              const SizedBox(height: 18),
+
               TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: "Password",
+                  labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
 
                   suffixIcon: IconButton(
@@ -211,7 +255,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   }
                 },
                 decoration: InputDecoration(
-                  labelText: "Confirm Password",
+                  labelText: 'Confirm Password',
                   prefixIcon: const Icon(Icons.lock_outline),
 
                   suffixIcon: IconButton(
@@ -242,14 +286,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: ElevatedButton(
                   onPressed: isLoading ? null : signup,
 
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-
                   child: isLoading
                       ? const SizedBox(
                           width: 24,
@@ -260,8 +296,8 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         )
                       : const Text(
-                          "CREATE ACCOUNT",
-                          style: TextStyle(color: Colors.white, fontSize: 16),
+                          'CREATE ACCOUNT',
+                          style: TextStyle(fontSize: 16),
                         ),
                 ),
               ),
@@ -269,8 +305,12 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 15),
 
               TextButton(
-                onPressed: isLoading ? null : () => Navigator.pop(context),
-                child: const Text("Already have an account? Login"),
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                      },
+                child: const Text('Already have an account? Login'),
               ),
             ],
           ),

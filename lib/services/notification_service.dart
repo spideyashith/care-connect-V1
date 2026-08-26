@@ -26,9 +26,26 @@ class NotificationService {
     try {
       final timezone = await FlutterTimezone.getLocalTimezone();
 
-      tz.setLocalLocation(tz.getLocation(timezone.identifier));
+      var timezoneName = timezone.identifier;
+
+      // Some Android devices report the old
+      // India timezone name.
+      if (timezoneName == 'Asia/Calcutta') {
+        timezoneName = 'Asia/Kolkata';
+      }
+
+      tz.setLocalLocation(tz.getLocation(timezoneName));
+
+      debugPrint('Notification timezone: $timezoneName');
     } catch (e) {
       debugPrint('Timezone setup failed: $e');
+
+      // Safe fallback for India.
+      try {
+        tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+      } catch (fallbackError) {
+        debugPrint('Timezone fallback failed: $fallbackError');
+      }
     }
 
     const androidSettings = AndroidInitializationSettings(
@@ -46,21 +63,69 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >();
 
-    await androidPlugin?.requestNotificationsPermission();
+    final notificationPermission = await androidPlugin
+        ?.requestNotificationsPermission();
 
-    await androidPlugin?.requestExactAlarmsPermission();
+    debugPrint(
+      'Notification permission: '
+      '$notificationPermission',
+    );
+
+    final exactAlarmPermission = await androidPlugin
+        ?.requestExactAlarmsPermission();
+
+    debugPrint(
+      'Exact alarm permission: '
+      '$exactAlarmPermission',
+    );
 
     const channel = AndroidNotificationChannel(
       'careconnect_tasks',
       'CareConnect Tasks',
       description: 'Notifications for patient daily activities.',
       importance: Importance.max,
+      playSound: true,
     );
 
     await androidPlugin?.createNotificationChannel(channel);
 
     _initialized = true;
+
+    debugPrint('Notification service initialized.');
   }
+
+  // ============================================================
+  // TEST NOTIFICATION
+  // ============================================================
+
+  Future<void> showTestNotification() async {
+    await initialize();
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'careconnect_tasks',
+        'CareConnect Tasks',
+        channelDescription: 'Notifications for patient daily activities.',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    );
+
+    await plugin.show(
+      id: 999999,
+      title: 'CareConnect Test',
+      body: 'CareConnect notifications are working.',
+      notificationDetails: details,
+    );
+
+    debugPrint('Test notification requested.');
+  }
+
+  // ============================================================
+  // SCHEDULE ACTIVITY REMINDER
+  // ============================================================
 
   Future<void> scheduleActivityReminder({
     required int notificationId,
@@ -87,8 +152,8 @@ class NotificationService {
       parsedTime.minute,
     );
 
-    // If today's time has passed,
-    // schedule the next occurrence tomorrow.
+    // If today's scheduled time has already passed,
+    // schedule the next daily occurrence.
     if (!scheduled.isAfter(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
@@ -97,10 +162,17 @@ class NotificationService {
       android: AndroidNotificationDetails(
         'careconnect_tasks',
         'CareConnect Tasks',
-        channelDescription: 'Patient activity reminders.',
+        channelDescription: 'Notifications for patient daily activities.',
         importance: Importance.max,
         priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
       ),
+    );
+
+    debugPrint(
+      'Scheduling reminder: '
+      '$activityName at $scheduled',
     );
 
     await plugin.zonedSchedule(
@@ -114,22 +186,34 @@ class NotificationService {
       payload: activityName,
     );
 
-    debugPrint(
-      'Reminder scheduled: '
-      '$activityName at $scheduled',
-    );
+    debugPrint('Reminder scheduled successfully.');
   }
+
+  // ============================================================
+  // CANCEL ONE REMINDER
+  // ============================================================
 
   Future<void> cancelReminder(int notificationId) async {
     await plugin.cancel(id: notificationId);
   }
 
+  // ============================================================
+  // CANCEL ALL REMINDERS
+  // ============================================================
+
   Future<void> cancelAll() async {
     await plugin.cancelAll();
   }
 
+  // ============================================================
+  // PARSE TIME
+  // Example:
+  // 8:30 PM
+  // 07:05 AM
+  // ============================================================
+
   TimeOfDayValue? _parseTime(String value) {
-    final parts = value.trim().split(' ');
+    final parts = value.trim().split(RegExp(r'\s+'));
 
     if (parts.length != 2) {
       return null;
@@ -150,6 +234,10 @@ class NotificationService {
     }
 
     final period = parts[1].toUpperCase();
+
+    if (period != 'AM' && period != 'PM') {
+      return null;
+    }
 
     if (period == 'PM' && hour != 12) {
       hour += 12;

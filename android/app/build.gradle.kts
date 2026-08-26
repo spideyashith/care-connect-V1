@@ -1,8 +1,12 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+
+    // Flutter Gradle Plugin
     id("dev.flutter.flutter-gradle-plugin")
+
+    // Firebase / Google Services
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -33,16 +37,27 @@ android {
 
     buildTypes {
         release {
-            // Temporary signing configuration.
-            // We will create a proper release keystore before Play Store publishing.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 dependencies {
-    // Required for flutter_local_notifications
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // Required by flutter_local_notifications
+    coreLibraryDesugaring(
+        "com.android.tools:desugar_jdk_libs:2.1.5"
+    )
+
+    // Firebase
+    implementation(
+        platform(
+            "com.google.firebase:firebase-bom:34.18.0"
+        )
+    )
+
+    implementation(
+        "com.google.firebase:firebase-messaging"
+    )
 }
 
 flutter {

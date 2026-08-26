@@ -48,10 +48,6 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     super.dispose();
   }
 
-  // ============================================================
-  // LOAD DASHBOARD
-  // ============================================================
-
   Future<void> loadDashboard() async {
     try {
       final patient = await connectionService.getConnectedPatient();
@@ -71,9 +67,7 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       }
 
       final location = await caregiverService.getLatestLocation();
-
       final alert = await caregiverService.getLatestAlert();
-
       final activityList = await caregiverService.getActivities();
 
       if (!mounted) return;
@@ -100,21 +94,14 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     }
   }
 
-  // ============================================================
-  // REALTIME EMERGENCY LISTENER
-  // ============================================================
-
   Future<void> startEmergencyListener() async {
     try {
       final patientId = await caregiverService.getPatientId();
 
-      if (patientId == null) {
-        return;
-      }
+      if (patientId == null) return;
 
       if (emergencyChannel != null) {
         await caregiverService.unsubscribe(emergencyChannel);
-
         emergencyChannel = null;
       }
 
@@ -143,10 +130,6 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
       debugPrint('Emergency listener error: $e');
     }
   }
-
-  // ============================================================
-  // CONNECT PATIENT
-  // ============================================================
 
   Future<void> connectPatient() async {
     final code = careCodeController.text.trim().toUpperCase();
@@ -187,10 +170,6 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     }
   }
 
-  // ============================================================
-  // LOGOUT
-  // ============================================================
-
   Future<void> logout() async {
     try {
       await Supabase.instance.client.auth.signOut();
@@ -199,17 +178,13 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
 
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     } catch (e) {
-      debugPrint('Caregiver logout error: $e');
+      debugPrint('Logout error: $e');
 
       if (!mounted) return;
 
       showMessage('Unable to logout.', isError: true);
     }
   }
-
-  // ============================================================
-  // MESSAGE
-  // ============================================================
 
   void showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
@@ -222,9 +197,37 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
+  Widget actionButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onPressed,
+    Color color = Colors.blue,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        elevation: 3,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 8,
+          ),
+          leading: CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.12),
+            child: Icon(icon, color: color),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+          onTap: onPressed,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -235,56 +238,37 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Caregiver Dashboard'),
-
         actions: [
-          if (assignedPatient != null)
-            IconButton(
-              icon: const Icon(Icons.map),
-              tooltip: 'Live Map',
-              onPressed: () {
-                Navigator.pushNamed(context, '/liveMap');
-              },
-            ),
-
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
             onPressed: loadDashboard,
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
           ),
-
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
             onPressed: logout,
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
-
       body: RefreshIndicator(
         onRefresh: loadDashboard,
-
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-
           padding: const EdgeInsets.all(16),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-
             children: [
               // ==================================================
               // CONNECT PATIENT
               // ==================================================
-              if (assignedPatient == null)
+              if (assignedPatient == null) ...[
                 Card(
                   elevation: 4,
-
                   child: Padding(
                     padding: const EdgeInsets.all(18),
-
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-
                       children: [
                         const Text(
                           'Connect Patient',
@@ -293,21 +277,15 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         const SizedBox(height: 8),
-
                         const Text(
                           'Enter the Care Code shown on the patient dashboard.',
                           style: TextStyle(color: Colors.grey),
                         ),
-
                         const SizedBox(height: 18),
-
                         TextField(
                           controller: careCodeController,
-
                           textCapitalization: TextCapitalization.characters,
-
                           decoration: const InputDecoration(
                             labelText: 'Patient Care Code',
                             hintText: 'CARE-XXXXXXXX',
@@ -315,16 +293,12 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                             border: OutlineInputBorder(),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
                         SizedBox(
                           width: double.infinity,
                           height: 50,
-
                           child: ElevatedButton.icon(
                             onPressed: isConnecting ? null : connectPatient,
-
                             icon: isConnecting
                                 ? const SizedBox(
                                     width: 20,
@@ -335,7 +309,6 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.person_add),
-
                             label: Text(
                               isConnecting
                                   ? 'CONNECTING...'
@@ -347,93 +320,146 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                     ),
                   ),
                 ),
+              ],
 
               // ==================================================
               // CONNECTED PATIENT
               // ==================================================
               if (assignedPatient != null) ...[
                 Card(
+                  elevation: 4,
                   child: ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.person)),
-
                     title: Text(assignedPatient!['full_name'] ?? 'Patient'),
-
                     subtitle: const Text('Connected Patient'),
                   ),
                 ),
 
                 const SizedBox(height: 15),
 
-                // CONNECTION STATUS
-                Card(
-                  child: const ListTile(
-                    leading: Icon(Icons.verified_user, color: Colors.green),
-
-                    title: Text('Patient Connected'),
-
-                    subtitle: Text('Monitoring is active.'),
-                  ),
-                ),
-
-                const SizedBox(height: 15),
-
+                // ==================================================
                 // PATIENT STATUS
+                // ==================================================
                 Card(
+                  elevation: 3,
                   child: ListTile(
                     leading: Icon(
                       latestAlert == null ? Icons.check_circle : Icons.warning,
                       color: latestAlert == null ? Colors.green : Colors.red,
                     ),
-
                     title: const Text('Patient Status'),
-
                     subtitle: Text(latestAlert == null ? 'SAFE' : 'ALERT'),
                   ),
                 ),
 
                 const SizedBox(height: 15),
 
-                // CURRENT LOCATION
+                // ==================================================
+                // QUICK ACTIONS
+                // ==================================================
+                const Text(
+                  'Patient Management',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 10),
+
+                // Schedule Activity
+                actionButton(
+                  icon: Icons.calendar_month,
+                  title: 'Schedule Activity',
+                  subtitle: 'Create medicine, meals, appointments and tasks.',
+                  color: Colors.blue,
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/schedule');
+                  },
+                ),
+
+                // Activity Monitor
+                actionButton(
+                  icon: Icons.task_alt,
+                  title: 'Activity Monitor',
+                  subtitle: 'Check the patient\'s latest activity.',
+                  color: Colors.green,
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/monitor');
+                  },
+                ),
+
+                // Live Location
+                actionButton(
+                  icon: Icons.location_on,
+                  title: 'Live Patient Location',
+                  subtitle: 'View the latest patient GPS coordinates.',
+                  color: Colors.blue,
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/live-location');
+                  },
+                ),
+
+                // Live Map
+                actionButton(
+                  icon: Icons.map,
+                  title: 'Live Map',
+                  subtitle: 'View patient, home and safe-zone location.',
+                  color: Colors.deepPurple,
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/liveMap');
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                // ==================================================
+                // LOCATION
+                // ==================================================
                 Card(
+                  elevation: 3,
                   child: ListTile(
-                    leading: const Icon(Icons.location_on, color: Colors.blue),
-
+                    leading: const Icon(
+                      Icons.location_on,
+                      color: Colors.blue,
+                      size: 35,
+                    ),
                     title: const Text('Current Location'),
-
                     subtitle: Text(
                       latestLocation == null
-                          ? 'No Location'
+                          ? 'No location available yet'
                           : 'Lat: ${latestLocation!['latitude']}\n'
-                                'Lng: ${latestLocation!['longitude']}',
+                                'Lng: ${latestLocation!['longitude']}\n'
+                                'Updated: ${latestLocation!['created_at']}',
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 15),
 
-                // LATEST ALERT
+                // ==================================================
+                // ALERT
+                // ==================================================
                 Card(
                   color: latestAlert != null ? Colors.red.shade50 : null,
-
+                  elevation: 3,
                   child: ListTile(
                     leading: Icon(
                       Icons.warning,
                       color: latestAlert != null ? Colors.red : Colors.grey,
+                      size: 35,
                     ),
-
                     title: const Text('Latest Alert'),
-
                     subtitle: Text(
                       latestAlert == null
-                          ? 'No Active Alerts'
-                          : '${latestAlert!['message'] ?? 'Emergency Alert'}',
+                          ? 'No active alerts'
+                          : '${latestAlert!['message'] ?? 'Emergency alert'}',
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 20),
 
-                // ACTIVITIES
+                // ==================================================
+                // TODAY'S ACTIVITIES
+                // ==================================================
                 const Text(
                   "Today's Activities",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -458,11 +484,8 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
                         completed ? Icons.check_circle : Icons.schedule,
                         color: completed ? Colors.green : Colors.orange,
                       ),
-
                       title: Text(activity['activity_name'] ?? 'Activity'),
-
                       subtitle: Text(activity['activity_time'] ?? '--'),
-
                       trailing: Text(
                         completed ? 'Completed' : 'Pending',
                         style: TextStyle(

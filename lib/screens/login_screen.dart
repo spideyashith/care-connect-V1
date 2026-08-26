@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/fcm_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -10,6 +12,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
+
+  final FcmService fcmService = FcmService();
 
   final TextEditingController emailController = TextEditingController();
 
@@ -31,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> login() async {
     final email = emailController.text.trim();
+
     final password = passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
@@ -55,7 +60,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Get the logged-in user's profile.
+      // ========================================================
+      // GET USER PROFILE
+      // ========================================================
+
       final profile = await supabase
           .from('profiles')
           .select()
@@ -72,11 +80,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = profile['role']?.toString().toLowerCase();
 
+      // ========================================================
+      // REGISTER FCM TOKEN
+      // ========================================================
+
+      // Firebase/FCM is only needed for Android right now.
+      try {
+        await fcmService.registerDeviceToken();
+
+        debugPrint('FCM token registered for user ${user.id}');
+      } catch (e) {
+        // Do not block login if FCM registration fails.
+        debugPrint('FCM token registration failed: $e');
+      }
+
       if (!mounted) return;
 
-      // ----------------------------------------------------------
+      // ========================================================
       // PATIENT
-      // ----------------------------------------------------------
+      // ========================================================
 
       if (role == 'patient') {
         Navigator.pushNamedAndRemoveUntil(
@@ -85,9 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
-      // ----------------------------------------------------------
+      // ========================================================
       // CAREGIVER
-      // ----------------------------------------------------------
+      // ========================================================
       else if (role == 'caregiver') {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -95,17 +117,20 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
-      // ----------------------------------------------------------
+      // ========================================================
       // DOCTOR
-      // ----------------------------------------------------------
+      // ========================================================
       else if (role == 'doctor') {
         Navigator.pushNamedAndRemoveUntil(context, '/doctor', (route) => false);
       }
-      // ----------------------------------------------------------
+      // ========================================================
       // INVALID ROLE
-      // ----------------------------------------------------------
+      // ========================================================
       else {
-        showMessage('Invalid account role. Please contact support.');
+        showMessage(
+          'Invalid account role. '
+          'Please contact support.',
+        );
       }
     } on AuthException catch (e) {
       showMessage(e.message);
@@ -222,11 +247,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 // =================================================
                 TextField(
                   controller: emailController,
+
                   keyboardType: TextInputType.emailAddress,
+
                   textInputAction: TextInputAction.next,
 
                   decoration: InputDecoration(
                     labelText: 'Email',
+
                     prefixIcon: const Icon(Icons.email),
 
                     border: OutlineInputBorder(
@@ -242,7 +270,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 // =================================================
                 TextField(
                   controller: passwordController,
+
                   obscureText: obscurePassword,
+
                   textInputAction: TextInputAction.done,
 
                   onSubmitted: (_) {
@@ -253,6 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   decoration: InputDecoration(
                     labelText: 'Password',
+
                     prefixIcon: const Icon(Icons.lock),
 
                     suffixIcon: IconButton(
@@ -261,6 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? Icons.visibility
                             : Icons.visibility_off,
                       ),
+
                       onPressed: () {
                         setState(() {
                           obscurePassword = !obscurePassword;
@@ -277,10 +309,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 30),
 
                 // =================================================
-                // LOGIN
+                // LOGIN BUTTON
                 // =================================================
                 SizedBox(
                   width: double.infinity,
+
                   height: 55,
 
                   child: ElevatedButton(
